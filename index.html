@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
+<title>call</title>
+<style>
+:root{--green:#4cd964;--red:#ff3b30;--bg:#000;--surface:rgba(255,255,255,.09);--muted:rgba(255,255,255,.45);--hint:rgba(255,255,255,.28)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#000;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;color:#fff;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
+
+/* ── screens ── */
+.screen{display:none;flex-direction:column;align-items:center;width:100%;max-width:390px;height:100vh;padding:0}
+.screen.active{display:flex}
+
+/* ── status bar ── */
+.status-bar{width:100%;display:flex;justify-content:space-between;align-items:center;padding:14px 22px 0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+
+/* ── home screen ── */
+#s-home{justify-content:center;gap:0;padding:0 32px}
+#s-home h1{font-size:28px;font-weight:600;letter-spacing:-.03em;margin-bottom:8px;text-align:center}
+#s-home p{font-size:15px;color:var(--muted);text-align:center;line-height:1.5;margin-bottom:48px}
+.big-btn{width:100%;padding:17px;border-radius:16px;border:none;font-size:17px;font-weight:600;cursor:pointer;font-family:inherit;letter-spacing:-.01em;transition:opacity .15s}
+.big-btn:active{opacity:.75}
+.big-btn.green{background:var(--green);color:#000}
+.big-btn.surface{background:var(--surface);color:#fff;margin-top:12px}
+
+/* ── incoming screen ── */
+#s-incoming{justify-content:space-between;padding-bottom:48px}
+.incoming-top{display:flex;flex-direction:column;align-items:center;padding-top:80px;gap:6px}
+.incoming-label{font-size:15px;color:var(--muted)}
+.caller-name{font-size:38px;font-weight:600;letter-spacing:-.03em}
+.caller-sub{font-size:15px;color:var(--muted)}
+.incoming-actions{display:flex;justify-content:space-around;align-items:center;width:100%;padding:0 20px}
+.action-btn{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer}
+.action-circle{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+.action-circle:active{opacity:.75}
+.action-circle.accept{background:var(--green)}
+.action-circle.decline{background:var(--red)}
+.action-label{font-size:13px;color:var(--muted)}
+
+/* ── call screen ── */
+#s-call{justify-content:space-between;padding-bottom:0}
+.call-top{display:flex;flex-direction:column;align-items:center;padding-top:60px;flex:1}
+.call-name{font-size:26px;font-weight:600;letter-spacing:-.02em;margin-bottom:2px}
+.call-timer{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;margin-bottom:32px}
+.avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:600;margin-bottom:24px;letter-spacing:-.01em}
+
+/* wave */
+.wave{display:flex;align-items:center;gap:3px;height:24px;margin-bottom:28px}
+.wb{width:3px;border-radius:2px;background:rgba(255,255,255,.22);transition:background .3s}
+.wb:nth-child(1){height:5px}.wb:nth-child(2){height:13px}.wb:nth-child(3){height:21px}
+.wb:nth-child(4){height:13px}.wb:nth-child(5){height:7px}.wb:nth-child(6){height:17px}.wb:nth-child(7){height:9px}
+.wave.speaking .wb{background:rgba(255,255,255,.75);animation:wv 1s ease-in-out infinite}
+@keyframes wv{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.wb:nth-child(1){animation-delay:0s}.wb:nth-child(2){animation-delay:.08s}.wb:nth-child(3){animation-delay:.16s}
+.wb:nth-child(4){animation-delay:.24s}.wb:nth-child(5){animation-delay:.32s}.wb:nth-child(6){animation-delay:.4s}.wb:nth-child(7){animation-delay:.48s}
+
+/* track indicators */
+.tracks{display:flex;gap:8px;margin-bottom:20px;padding:0 28px;width:100%}
+.track{flex:1;background:rgba(255,255,255,.07);border-radius:10px;padding:7px 10px;display:flex;align-items:center;gap:6px}
+.track-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.track-dot.live{background:var(--green)}
+.track-dot.muted{background:#555}
+.track-name{font-size:12px;color:var(--muted);flex:1}
+.track-badge{font-size:10px;color:rgba(255,255,255,.3);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:6px}
+.track-badge.rec{color:#ff453a;background:rgba(255,59,48,.12)}
+
+/* rec indicator */
+.rec-row{display:flex;align-items:center;gap:6px;margin-bottom:24px}
+.rec-dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.rec-text{font-size:12px;color:var(--hint)}
+
+/* control grid */
+.ctrl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:0 28px;width:100%;margin-bottom:28px}
+.ctrl{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ctrl-btn{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;transition:background .15s}
+.ctrl-btn:active{opacity:.7}
+.ctrl-btn.on{background:#fff}
+.ctrl-btn.on svg{stroke:#000}
+.ctrl-label{font-size:12px;color:var(--muted);text-align:center;line-height:1.3}
+
+/* hint */
+.ctrl-hint{font-size:12px;color:var(--hint);text-align:center;padding:0 36px;margin-bottom:20px;min-height:32px;line-height:1.5;transition:opacity .3s}
+
+/* end button */
+.end-row{padding-bottom:max(40px, env(safe-area-inset-bottom, 40px));display:flex;justify-content:center}
+.end-btn{width:70px;height:70px;border-radius:50%;background:var(--red);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.end-btn:active{opacity:.75}
+
+/* ── export screen ── */
+#s-export{justify-content:flex-start;overflow-y:auto;padding-bottom:40px}
+#s-export .hd{padding:60px 24px 24px;width:100%}
+#s-export .hd h2{font-size:24px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+#s-export .hd p{font-size:14px;color:var(--muted)}
+.export-card{margin:0 16px 12px;background:rgba(255,255,255,.07);border-radius:16px;padding:16px}
+.export-card h3{font-size:14px;font-weight:600;margin-bottom:4px}
+.export-card .meta{font-size:12px;color:var(--muted);margin-bottom:12px}
+.export-card audio{width:100%;height:32px;margin-bottom:10px}
+.dl-btn{width:100%;padding:11px;border-radius:10px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.dl-btn:active{opacity:.7}
+.dl-btn.accent{background:rgba(255,255,255,.18)}
+.export-section{margin:0 16px 12px}
+.export-section h3{font-size:13px;color:var(--muted);font-weight:500;margin-bottom:10px;letter-spacing:.03em;text-transform:uppercase}
+.tx-box{background:rgba(255,255,255,.06);border-radius:12px;padding:14px;font-size:14px;color:var(--muted);line-height:1.6;max-height:160px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+.new-call-btn{margin:16px 16px 0;width:calc(100% - 32px);padding:16px;border-radius:16px;background:var(--green);color:#000;font-size:16px;font-weight:700;border:none;cursor:pointer;font-family:inherit}
+
+/* ── waiting screen ── */
+#s-wait{justify-content:center;gap:0;padding:0 32px;text-align:center}
+#s-wait h2{font-size:22px;font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+#s-wait p{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:32px}
+.link-box{background:rgba(255,255,255,.08);border-radius:14px;padding:14px;word-break:break-all;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;text-align:left}
+.copy-btn{width:100%;padding:15px;border-radius:14px;background:rgba(255,255,255,.15);color:#fff;font-size:16px;font-weight:600;border:none;cursor:pointer;font-family:inherit;margin-bottom:12px}
+.copy-btn:active{opacity:.7}
+.copy-btn.copied{background:var(--green);color:#000}
+
+/* ── svg icons inline ── */
+svg{stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:stroke .15s}
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div class="screen active" id="s-home">
+  <div class="status-bar"><span id="sb-time">20:14</span><span></span></div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:0 32px">
+    <h1>call.</h1>
+    <p>P2P-Anruf.<br>Getrennte Spuren. Kein Server.</p>
+    <button class="big-btn green" onclick="startCall()">Anruf starten</button>
+    <button class="big-btn surface" onclick="showPasteScreen()">Link einfügen</button>
+  </div>
+</div>
+
+<!-- WAITING FOR ANSWER -->
+<div class="screen" id="s-wait">
+  <div class="status-bar"><span id="sb-time2"></span></div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:0 32px">
+    <h2>Link schicken</h2>
+    <p>Schick diesen Link. Wenn die andere Person ihn öffnet, startet der Anruf.</p>
+    <div class="link-box" id="offer-link-box">Generiere Link…</div>
+    <button class="copy-btn" id="copy-btn" onclick="copyLink()">Link kopieren</button>
+    <button class="big-btn surface" style="width:100%" onclick="cancelWait()">Abbrechen</button>
+  </div>
+</div>
+
+<!-- INCOMING -->
+<div class="screen" id="s-incoming">
+  <div class="status-bar"><span id="sb-time3"></span></div>
+  <div class="incoming-top">
+    <div class="incoming-label">eingehender anruf</div>
+    <div class="caller-name" id="inc-name">Unbekannt</div>
+    <div class="caller-sub">möchte dich anrufen</div>
+  </div>
+  <div class="incoming-actions">
+    <div class="action-btn" onclick="declineCall()">
+      <button class="action-circle decline">
+        <svg width="28" height="28" viewBox="0 0 24 24"><path d="M23 17c0 0-4-2-4-5V9"/><path d="M1 7c0 0 4 2 4 5v3"/><line x1="1" y1="1" x2="23" y2="23" stroke-width="2"/></svg>
+      </button>
+      <span class="action-label">ablehnen</span>
+    </div>
+    <div class="action-btn" onclick="acceptCall()">
+      <button class="action-circle accept">
+        <svg width="28" height="28" viewBox="0 0 24 24" stroke="#000"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 10.81a19.79 19.79 0 01-3.07-8.68A2 2 0 011.92 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>
+      </button>
+      <span class="action-label">annehmen</span>
+    </div>
+  </div>
+</div>
+
+<!-- ACTIVE CALL -->
+<div class="screen" id="s-call">
+  <div class="call-top">
+    <div style="height:60px"></div>
+    <div class="call-name" id="call-name">Jonas</div>
+    <div class="call-timer" id="call-timer">00:00</div>
+    <div class="avatar" id="call-avatar">J</div>
+    <div class="wave speaking" id="wave">
+      <div class="wb"></div><div class="wb"></div><div class="wb"></div>
+      <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+    </div>
+    <div class="tracks" id="tracks">
+      <div class="track">
+        <div class="track-dot live" id="dot-me"></div>
+        <span class="track-name">Du</span>
+        <span class="track-badge rec" id="badge-me">REC</span>
+      </div>
+      <div class="track">
+        <div class="track-dot live" id="dot-them"></div>
+        <span class="track-name" id="them-label">Gesprächspartner</span>
+        <span class="track-badge rec" id="badge-them">REC</span>
+      </div>
+    </div>
+    <div class="rec-row">
+      <div class="rec-dot"></div>
+      <span class="rec-text">aufnahme läuft — alles lokal</span>
+    </div>
+  </div>
+
+  <div style="width:100%">
+    <div class="ctrl-grid">
+      <div class="ctrl">
+        <button class="ctrl-btn" id="btn-mute" onclick="toggleMute()" aria-label="Stummschalten">
+          <svg width="24" height="24" viewBox="0 0 24 24" id="mute-svg"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+        <span class="ctrl-label" id="mute-lbl">stummschalten</span>
+      </div>
+      <div class="ctrl">
+        <button class="ctrl-btn" id="btn-spk" onclick="toggleSpeaker()" aria-label="Lautsprecher">
+          <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14" id="spk-outer"/><path d="M15.54 8.46a5 5 0 010 7.07" id="spk-inner"/></svg>
+        </button>
+        <span class="ctrl-label">lautsprecher</span>
+      </div>
+      <div class="ctrl">
+        <button class="ctrl-btn" id="btn-kb" onclick="toggleKeypad()" aria-label="Tastenfeld">
+          <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="6" cy="6" r="1.5" fill="#fff" stroke="none"/><circle cx="12" cy="6" r="1.5" fill="#fff" stroke="none"/><circle cx="18" cy="6" r="1.5" fill="#fff" stroke="none"/><circle cx="6" cy="12" r="1.5" fill="#fff" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="#fff" stroke="none"/><circle cx="18" cy="12" r="1.5" fill="#fff" stroke="none"/><circle cx="6" cy="18" r="1.5" fill="#fff" stroke="none"/><circle cx="12" cy="18" r="1.5" fill="#fff" stroke="none"/></svg>
+        </button>
+        <span class="ctrl-label">tasten</span>
+      </div>
+    </div>
+
+    <div class="ctrl-hint" id="ctrl-hint">stummschalten wirkt sofort — deine spur nimmt weiter auf</div>
+
+    <div class="end-row">
+      <button class="end-btn" onclick="endCall()" aria-label="Auflegen">
+        <svg width="28" height="28" viewBox="0 0 24 24"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7 2 2 0 011.72 2v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.42 19.42 0 013.43 9.19 19.79 19.79 0 01.36 0.56 2 2 0 012.34 0h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.32 7.9a16 16 0 004.36 5.41z"/><line x1="1" y1="1" x2="23" y2="23" stroke-width="2.2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT -->
+<div class="screen" id="s-export">
+  <div class="hd">
+    <h2>Aufnahme</h2>
+    <p id="export-meta">Gespräch beendet</p>
+  </div>
+  <div id="export-tracks"></div>
+  <div class="export-section" id="tx-section" style="display:none">
+    <h3>Transkript</h3>
+    <div class="tx-box" id="tx-box"></div>
+  </div>
+  <div style="margin:16px 16px 0">
+    <button class="dl-btn accent" onclick="exportAll()">Alles als ZIP herunterladen</button>
+  </div>
+  <button class="new-call-btn" onclick="newCall()">Neuer Anruf</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+// ── state ──────────────────────────────────────────────────────────────────
+let pc, localStream, remoteStream;
+let localRec, remoteRec;
+let localChunks = [], remoteChunks = [];
+let db, timerInterval, callStart;
+let muted = false, speakerOn = false;
+let transcriptLocal = '', transcriptRemote = '';
+let srLocal, srRemote;
+let isHost = false;
+let offerLink = '';
+
+const STUN = [{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}];
+
+// ── clock ───────────────────────────────────────────────────────────────────
+function updateClock(){
+  const t = new Date();
+  const s = t.getHours()+':'+(t.getMinutes()+'').padStart(2,'0');
+  ['sb-time','sb-time2','sb-time3'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=s;});
+}
+updateClock(); setInterval(updateClock,10000);
+
+// ── IndexedDB ────────────────────────────────────────────────────────────────
+async function openDB(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open('callrec',2);
+    r.onupgradeneeded = e=>{
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('chunks'))
+        d.createObjectStore('chunks',{keyPath:'id',autoIncrement:true});
+    };
+    r.onsuccess = e=>res(e.target.result);
+    r.onerror = rej;
+  });
+}
+async function saveChunk(speaker, blob){
+  if(!db) return;
+  const tx = db.transaction('chunks','readwrite');
+  tx.objectStore('chunks').add({speaker, blob, ts:Date.now()});
+}
+async function getChunks(){
+  return new Promise(res=>{
+    const tx = db.transaction('chunks','readonly');
+    const r = tx.objectStore('chunks').getAll();
+    r.onsuccess = e=>res(e.target.result||[]);
+  });
+}
+async function clearChunks(){
+  return new Promise(res=>{
+    const tx = db.transaction('chunks','readwrite');
+    tx.objectStore('chunks').clear();
+    tx.oncomplete = res;
+  });
+}
+
+// ── WebRTC helpers ───────────────────────────────────────────────────────────
+function makePC(){
+  pc = new RTCPeerConnection({iceServers:STUN});
+  pc.ontrack = e=>{
+    remoteStream = e.streams[0];
+    const audio = new Audio();
+    audio.srcObject = remoteStream;
+    audio.play().catch(()=>{});
+    startVU(remoteStream,'dot-them');
+  };
+  pc.onconnectionstatechange = ()=>{
+    if(pc.connectionState==='connected') onConnected();
+    if(['disconnected','failed','closed'].includes(pc.connectionState)) endCall();
+  };
+}
+
+async function gatherICE(pc){
+  return new Promise(res=>{
+    if(pc.iceGatheringState==='complete'){res();return;}
+    const check = ()=>{ if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',check);res();} };
+    pc.addEventListener('icegatheringstatechange',check);
+    setTimeout(res, 5000); // fallback
+  });
+}
+
+function encodeSignal(obj){ return btoa(JSON.stringify(obj)); }
+function decodeSignal(s){ return JSON.parse(atob(s)); }
+
+// ── URL signal ───────────────────────────────────────────────────────────────
+function buildJoinURL(sdpObj){
+  const encoded = encodeSignal(sdpObj);
+  return location.origin + location.pathname + '#join=' + encoded;
+}
+
+function parseHash(){
+  const h = location.hash;
+  if(h.startsWith('#join=')) return {type:'join', data: decodeSignal(h.slice(6))};
+  if(h.startsWith('#answer=')) return {type:'answer', data: decodeSignal(h.slice(8))};
+  return null;
+}
+
+// ── start call (host) ────────────────────────────────────────────────────────
+async function startCall(){
+  isHost = true;
+  localStream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+  makePC();
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await gatherICE(pc);
+
+  const signal = {sdp: pc.localDescription};
+  offerLink = buildJoinURL(signal);
+
+  show('s-wait');
+  document.getElementById('offer-link-box').textContent = offerLink;
+
+  // poll for answer in hash (user pastes it or we detect redirect)
+  // We also listen for storage events as a simple cross-tab signal
+  window._waitInterval = setInterval(checkForAnswer, 1000);
+}
+
+function checkForAnswer(){
+  // Check if hash changed to answer
+  const h = location.hash;
+  if(h.startsWith('#answer=')){
+    clearInterval(window._waitInterval);
+    try{
+      const data = decodeSignal(h.slice(8));
+      finishAsHost(data);
+    }catch(e){}
+    history.replaceState(null,'',location.pathname);
+  }
+}
+
+async function finishAsHost(data){
+  await pc.setRemoteDescription(data.sdp);
+  for(const c of (data.ice||[])) pc.addIceCandidate(c).catch(()=>{});
+  show('s-call');
+  startVU(localStream,'dot-me');
+  startRecording();
+  startTimer();
+}
+
+// ── join call (guest opens link) ─────────────────────────────────────────────
+async function joinFromLink(data){
+  localStream = await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+  show('s-incoming');
+
+  window._pendingOffer = data;
+}
+
+async function acceptCall(){
+  const data = window._pendingOffer;
+  if(!data) return;
+  makePC();
+  localStream.getTracks().forEach(t=>pc.addTrack(t,localStream));
+
+  await pc.setRemoteDescription(data.sdp);
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  await gatherICE(pc);
+
+  const signal = {sdp: pc.localDescription, ice:[]};
+  // Build answer URL and open it — host is polling
+  const answerURL = location.origin + location.pathname + '#answer=' + encodeSignal(signal);
+
+  // Open in new tab pointing to host's original URL with the answer hash
+  // Actually: we need to redirect back. The host link is the base URL.
+  // Simplest: open the answer URL — host detects it if same device/tab,
+  // or user manually sends it. Show a "send back" UI.
+
+  show('s-wait');
+  document.getElementById('offer-link-box').textContent = answerURL;
+  document.getElementById('copy-btn').onclick = ()=>copyText(answerURL);
+
+  // change the h2 and p
+  document.querySelector('#s-wait h2').textContent = 'Antwort schicken';
+  document.querySelector('#s-wait p').textContent = 'Schick diesen Link zurück an die andere Person. Der Anruf startet sofort wenn sie ihn öffnet.';
+
+  show('s-call');
+  startVU(localStream,'dot-me');
+  startRecording();
+  startTimer();
+}
+
+function declineCall(){
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  show('s-home');
+}
+
+function cancelWait(){
+  clearInterval(window._waitInterval);
+  if(pc) pc.close();
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  history.replaceState(null,'',location.pathname);
+  show('s-home');
+}
+
+// ── paste screen ─────────────────────────────────────────────────────────────
+function showPasteScreen(){
+  const url = prompt('Link einfügen:');
+  if(!url) return;
+  try{
+    const u = new URL(url);
+    const h = u.hash;
+    if(h.startsWith('#join=')){
+      const data = decodeSignal(h.slice(6));
+      joinFromLink(data);
+    } else if(h.startsWith('#answer=')){
+      // host pasted answer manually
+      clearInterval(window._waitInterval);
+      const data = decodeSignal(h.slice(8));
+      finishAsHost(data);
+    }
+  }catch(e){ alert('Ungültiger Link'); }
+}
+
+// ── connection established ────────────────────────────────────────────────────
+function onConnected(){
+  show('s-call');
+  startVU(localStream,'dot-me');
+  startRecording();
+  startTimer();
+}
+
+// ── volume meter ─────────────────────────────────────────────────────────────
+function startVU(stream, dotId){
+  try{
+    const ctx = new AudioContext();
+    const src = ctx.createMediaStreamSource(stream);
+    const an = ctx.createAnalyser();
+    an.fftSize = 256;
+    src.connect(an);
+    const buf = new Uint8Array(an.frequencyBinCount);
+    const dot = document.getElementById(dotId);
+    const wave = document.getElementById('wave');
+    function tick(){
+      an.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b)=>a+b,0)/buf.length;
+      if(dotId==='dot-me' && wave) wave.classList.toggle('speaking', avg>8 && !muted);
+      requestAnimationFrame(tick);
+    }
+    tick();
+  }catch(e){}
+}
+
+// ── recording ────────────────────────────────────────────────────────────────
+function startRecording(){
+  const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+    ? 'audio/webm;codecs=opus' : 'audio/webm';
+
+  localChunks = []; remoteChunks = [];
+
+  localRec = new MediaRecorder(localStream,{mimeType:mime});
+  localRec.ondataavailable = e=>{ if(e.data.size>0){ localChunks.push(e.data); saveChunk('local',e.data); }};
+  localRec.start(5000);
+
+  if(remoteStream){
+    remoteRec = new MediaRecorder(remoteStream,{mimeType:mime});
+    remoteRec.ondataavailable = e=>{ if(e.data.size>0){ remoteChunks.push(e.data); saveChunk('remote',e.data); }};
+    remoteRec.start(5000);
+  }
+
+  // speech recognition
+  srLocal = startSR('de-DE', t=>{ transcriptLocal=t; });
+  if(remoteStream) srRemote = startSR('de-DE', t=>{ transcriptRemote=t; });
+}
+
+function startSR(lang, cb){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return null;
+  const r = new SR();
+  r.continuous=true; r.interimResults=true; r.lang=lang;
+  let final='';
+  r.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final+=e.results[i][0].transcript+' ';
+      else interim=e.results[i][0].transcript;
+    }
+    cb(final+(interim?'['+interim+']':''));
+  };
+  r.onend=()=>{ if(window._callActive) r.start(); };
+  r.onerror=()=>{};
+  try{r.start();}catch(e){}
+  return r;
+}
+
+// ── timer ────────────────────────────────────────────────────────────────────
+function startTimer(){
+  callStart = Date.now();
+  window._callActive = true;
+  timerInterval = setInterval(()=>{
+    const s = Math.floor((Date.now()-callStart)/1000);
+    const m = Math.floor(s/60).toString().padStart(2,'0');
+    const sc = (s%60).toString().padStart(2,'0');
+    document.getElementById('call-timer').textContent = m+':'+sc;
+  },500);
+}
+
+// ── controls ─────────────────────────────────────────────────────────────────
+function toggleMute(){
+  muted = !muted;
+  localStream.getTracks().forEach(t=>{ if(t.kind==='audio') t.enabled=!muted; });
+  const btn = document.getElementById('btn-mute');
+  const lbl = document.getElementById('mute-lbl');
+  const dot = document.getElementById('dot-me');
+  const badge = document.getElementById('badge-me');
+  const hint = document.getElementById('ctrl-hint');
+  btn.classList.toggle('on', muted);
+  if(muted){
+    lbl.textContent='einschalten';
+    dot.className='track-dot muted';
+    badge.textContent='REC';
+    badge.className='track-badge rec';
+    hint.textContent='stumm für gesprächspartner — deine spur nimmt weiter auf';
+    // mute svg → strikethrough mic
+    document.getElementById('mute-svg').innerHTML=`<path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/><line x1="1" y1="1" x2="23" y2="23" stroke-width="2.2"/>`;
+  } else {
+    lbl.textContent='stummschalten';
+    dot.className='track-dot live';
+    badge.textContent='REC';
+    badge.className='track-badge rec';
+    hint.textContent='stummschalten wirkt sofort — deine spur nimmt weiter auf';
+    document.getElementById('mute-svg').innerHTML=`<path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>`;
+  }
+}
+
+function toggleSpeaker(){
+  speakerOn = !speakerOn;
+  document.getElementById('btn-spk').classList.toggle('on', speakerOn);
+  const hint = document.getElementById('ctrl-hint');
+  hint.textContent = speakerOn ? 'lautsprecher an' : 'stummschalten wirkt sofort — deine spur nimmt weiter auf';
+}
+
+function toggleKeypad(){
+  const hint = document.getElementById('ctrl-hint');
+  hint.textContent = 'tastenfeld — bald verfügbar';
+}
+
+// ── end call ─────────────────────────────────────────────────────────────────
+function endCall(){
+  if(!window._callActive) return;
+  window._callActive = false;
+  clearInterval(timerInterval);
+  if(srLocal) try{srLocal.stop();}catch(e){}
+  if(srRemote) try{srRemote.stop();}catch(e){}
+
+  const dur = callStart ? Math.floor((Date.now()-callStart)/1000) : 0;
+  const m = Math.floor(dur/60).toString().padStart(2,'0');
+  const s = (dur%60).toString().padStart(2,'0');
+
+  const stops = [];
+  if(localRec && localRec.state!=='inactive'){
+    stops.push(new Promise(r=>{ localRec.onstop=r; localRec.stop(); }));
+  }
+  if(remoteRec && remoteRec.state!=='inactive'){
+    stops.push(new Promise(r=>{ remoteRec.onstop=r; remoteRec.stop(); }));
+  }
+
+  Promise.all(stops).then(()=> buildExport(m+':'+s));
+
+  if(pc) pc.close();
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+}
+
+// ── export ───────────────────────────────────────────────────────────────────
+function buildExport(durStr){
+  document.getElementById('export-meta').textContent = 'Dauer: '+durStr;
+
+  const container = document.getElementById('export-tracks');
+  container.innerHTML = '';
+
+  const tracks = [
+    {label:'Deine Spur', chunks:localChunks, id:'local'},
+    {label:'Gesprächspartner', chunks:remoteChunks, id:'remote'}
+  ];
+
+  tracks.forEach(({label,chunks,id})=>{
+    if(!chunks.length) return;
+    const blob = new Blob(chunks,{type:'audio/webm'});
+    const url = URL.createObjectURL(blob);
+    const kb = Math.round(blob.size/1024);
+    const card = document.createElement('div');
+    card.className='export-card';
+    card.innerHTML=`<h3>${label}</h3><div class="meta">${kb} KB · WebM · lokal</div>
+    <audio controls src="${url}"></audio>
+    <a href="${url}" download="spur_${id}.webm" style="text-decoration:none">
+      <button class="dl-btn">WebM herunterladen</button>
+    </a>`;
+    container.appendChild(card);
+  });
+
+  const tx = (transcriptLocal+'\n\n'+transcriptRemote).trim();
+  if(tx){
+    document.getElementById('tx-section').style.display='block';
+    document.getElementById('tx-box').textContent = tx;
+  }
+
+  show('s-export');
+}
+
+async function exportAll(){
+  if(typeof JSZip==='undefined'){ alert('JSZip nicht geladen'); return; }
+  const zip = new JSZip();
+  const pairs = [
+    {id:'local',chunks:localChunks},
+    {id:'remote',chunks:remoteChunks}
+  ];
+  for(const {id,chunks} of pairs){
+    if(!chunks.length) continue;
+    const blob = new Blob(chunks,{type:'audio/webm'});
+    zip.file(`spur_${id}.webm`, await blob.arrayBuffer());
+  }
+  const tx = ['Du:\n'+transcriptLocal,'Gesprächspartner:\n'+transcriptRemote].join('\n\n');
+  zip.file('transkript.txt', tx);
+  const content = await zip.generateAsync({type:'blob'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(content);
+  a.download = 'aufnahme.zip';
+  a.click();
+}
+
+function newCall(){
+  localChunks=[]; remoteChunks=[];
+  transcriptLocal=''; transcriptRemote='';
+  muted=false;
+  clearChunks();
+  history.replaceState(null,'',location.pathname);
+  show('s-home');
+}
+
+// ── utils ────────────────────────────────────────────────────────────────────
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function copyLink(){
+  copyText(offerLink);
+}
+function copyText(txt){
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn = document.getElementById('copy-btn');
+    const orig = btn.textContent;
+    btn.textContent='Kopiert!';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('copied'); },2000);
+  }).catch(()=>{ prompt('Link:',txt); });
+}
+
+// ── init ─────────────────────────────────────────────────────────────────────
+openDB().then(d=>{ db=d; });
+
+// Handle incoming link
+window.addEventListener('load', ()=>{
+  const parsed = parseHash();
+  if(parsed?.type==='join'){
+    history.replaceState(null,'',location.pathname);
+    joinFromLink(parsed.data);
+  } else if(parsed?.type==='answer' && isHost){
+    clearInterval(window._waitInterval);
+    finishAsHost(parsed.data);
+    history.replaceState(null,'',location.pathname);
+  }
+});
+
+// Handle answer link when host is waiting
+window.addEventListener('hashchange', ()=>{
+  const h = location.hash;
+  if(h.startsWith('#answer=') && isHost){
+    clearInterval(window._waitInterval);
+    try{
+      const data = decodeSignal(h.slice(8));
+      finishAsHost(data);
+    }catch(e){}
+    history.replaceState(null,'',location.pathname);
+  }
+});
+</script>
+</body>
+</html>
