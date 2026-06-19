@@ -140,11 +140,12 @@ svg{stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:
 <div class="screen" id="s-wait">
   <div class="status-bar"><span id="sb-time2"></span></div>
   <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:0 32px">
-    <h2>Link schicken</h2>
-    <p>Schick diesen Link. Wenn die andere Person ihn öffnet, startet der Anruf.</p>
-    <div class="link-box" id="offer-link-box">Generiere Link…</div>
+    <div style="font-size:48px;margin-bottom:20px">📞</div>
+    <h2 id="wait-title">Link bereit</h2>
+    <p id="wait-desc" style="margin-bottom:36px">Schick den Link. Wenn die andere Person ihn öffnet, startet der Anruf automatisch.</p>
+    <button class="big-btn green" id="share-btn" onclick="shareLink()" style="margin-bottom:12px">Link teilen</button>
     <button class="copy-btn" id="copy-btn" onclick="copyLink()">Link kopieren</button>
-    <button class="big-btn surface" style="width:100%" onclick="cancelWait()">Abbrechen</button>
+    <button class="big-btn surface" style="width:100%;margin-top:12px" onclick="cancelWait()">Abbrechen</button>
   </div>
 </div>
 
@@ -360,9 +361,9 @@ async function startCall(){
 
   const signal = {sdp: pc.localDescription};
   offerLink = buildJoinURL(signal);
+  window._currentShareURL = offerLink;
 
   show('s-wait');
-  document.getElementById('offer-link-box').textContent = offerLink;
 
   // poll for answer in hash (user pastes it or we detect redirect)
   // We also listen for storage events as a simple cross-tab signal
@@ -413,20 +414,9 @@ async function acceptCall(){
   const signal = {sdp: pc.localDescription, ice:[]};
   // Build answer URL and open it — host is polling
   const answerURL = location.origin + location.pathname + '#answer=' + encodeSignal(signal);
-
-  // Open in new tab pointing to host's original URL with the answer hash
-  // Actually: we need to redirect back. The host link is the base URL.
-  // Simplest: open the answer URL — host detects it if same device/tab,
-  // or user manually sends it. Show a "send back" UI.
-
-  show('s-wait');
-  document.getElementById('offer-link-box').textContent = answerURL;
-  document.getElementById('copy-btn').onclick = ()=>copyText(answerURL);
-
-  // change the h2 and p
-  document.querySelector('#s-wait h2').textContent = 'Antwort schicken';
-  document.querySelector('#s-wait p').textContent = 'Schick diesen Link zurück an die andere Person. Der Anruf startet sofort wenn sie ihn öffnet.';
-
+  window._currentShareURL = answerURL;
+  document.getElementById('wait-title').textContent = 'Antwort zurückschicken';
+  document.getElementById('wait-desc').textContent = 'Schick diesen Link zurück. Anruf startet sobald die andere Person ihn öffnet.';
   show('s-call');
   startVU(localStream,'dot-me');
   startRecording();
@@ -686,17 +676,25 @@ function show(id){
   document.getElementById(id).classList.add('active');
 }
 
+function shareLink(){
+  const url = window._currentShareURL || offerLink;
+  if(navigator.share){
+    navigator.share({title:'call.', url}).catch(()=>copyText(url));
+  } else { copyText(url); }
+}
 function copyLink(){
-  copyText(offerLink);
+  copyText(window._currentShareURL || offerLink);
 }
 function copyText(txt){
-  navigator.clipboard.writeText(txt).then(()=>{
-    const btn = document.getElementById('copy-btn');
-    const orig = btn.textContent;
-    btn.textContent='Kopiert!';
-    btn.classList.add('copied');
-    setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('copied'); },2000);
-  }).catch(()=>{ prompt('Link:',txt); });
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>{
+      const btn = document.getElementById('copy-btn');
+      const orig = btn.textContent;
+      btn.textContent='Kopiert ✓';
+      btn.classList.add('copied');
+      setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('copied'); },2500);
+    }).catch(()=>{ prompt('Link kopieren:',txt); });
+  } else { prompt('Link kopieren:',txt); }
 }
 
 // ── init ─────────────────────────────────────────────────────────────────────
