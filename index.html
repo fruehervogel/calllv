@@ -155,6 +155,9 @@ svg{stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:
     <p id="wait-p">Schick den Link. Sobald die andere Person ihn öffnet, startet der Anruf.</p>
     <button class="btn-big green" onclick="shareLink()" style="width:100%">Link teilen</button>
     <button class="btn-big surface" id="copy-btn" onclick="copyLink()" style="width:100%">Link kopieren</button>
+    <div id="paste-answer-row" style="width:100%">
+      <button class="btn-big surface" style="width:100%;background:rgba(255,255,255,.08)" onclick="pasteAnswerLink()">Antwort einfügen ↩</button>
+    </div>
     <button class="btn-big surface" style="width:100%;background:rgba(255,255,255,.05)" onclick="cancelWait()">Abbrechen</button>
     <div class="session-name">Session · <span id="wait-sname"></span></div>
   </div>
@@ -353,6 +356,13 @@ function makePC(){
     audio.srcObject = remoteStream;
     audio.play().catch(()=>{});
     vuMeter(remoteStream,'dot-them');
+    // start remote rec now if call already active (host side: ontrack comes after enterCall)
+    if(callActive && (!remoteRec || remoteRec.state==='inactive')){
+      const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+      remoteRec=new MediaRecorder(remoteStream,{mimeType:mime});
+      remoteRec.ondataavailable=ev=>{ if(ev.data.size>0){remoteChunks.push(ev.data);saveChunk('remote',ev.data);} };
+      remoteRec.start(5000);
+    }
   };
   pc.onconnectionstatechange = ()=>{
     if(['disconnected','failed','closed'].includes(pc.connectionState) && callActive){
@@ -464,6 +474,20 @@ function pasteLink(){
   }catch(e){ alert('Ungültiger Link'); }
 }
 
+function pasteAnswerLink(){
+  const raw = prompt('Antwort-Link einfügen:');
+  if(!raw) return;
+  try{
+    const u = new URL(raw);
+    const h = u.hash;
+    if(h.startsWith('#a=')){
+      clearInterval(window._answerPoll);
+      finishHost(dec(h.slice(3)));
+      history.replaceState(null,'',location.pathname);
+    } else { alert('Kein gültiger Antwort-Link'); }
+  }catch(e){ alert('Ungültiger Link'); }
+}
+
 function cancelWait(){
   clearInterval(window._answerPoll);
   if(pc) try{pc.close();}catch(e){}
@@ -489,14 +513,17 @@ function enterCall(theirName){
 // ── wait screen modes ─────────────────────────────────────────────────────────
 function setWaitMode(mode){
   document.getElementById('wait-sname').textContent = sessionName;
+  const pasteRow = document.getElementById('paste-answer-row');
   if(mode==='offer'){
     document.getElementById('wait-emoji').textContent='📞';
     document.getElementById('wait-h2').textContent='Link bereit';
-    document.getElementById('wait-p').textContent='Schick den Link. Sobald die andere Person ihn öffnet, startet der Anruf.';
+    document.getElementById('wait-p').textContent='Schick den Link. Wenn die andere Person antwortet, hier Antwort-Link einfügen.';
+    if(pasteRow) pasteRow.style.display='block';
   } else {
     document.getElementById('wait-emoji').textContent='↩️';
     document.getElementById('wait-h2').textContent='Antwort zurückschicken';
-    document.getElementById('wait-p').textContent='Schick diesen Link zurück. Der Anruf startet sobald die andere Person ihn öffnet.';
+    document.getElementById('wait-p').textContent='Schick diesen Link zurück an die andere Person.';
+    if(pasteRow) pasteRow.style.display='none';
   }
 }
 
